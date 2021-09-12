@@ -1,28 +1,38 @@
-import timeit
-from collections import defaultdict 
-def analyze_logs(input_time1:float, input_time2:float, input_filename: str) -> str:
+import sys
+
+def analyze_logs(input_time1: float, input_time2: float, input_filename: str) -> dict:
     print ("Between time", input_time1," & ",input_time2,":")
-    total_request = 0
-    fail_req = 0 
     with open(input_filename,'r') as logs:
         lines = logs.readlines()
-        domain_status = defaultdict(int)
-        http_status = 500
+        log_lines = {}
         for line in lines:
-            
-            # 
             if  (float(line.split('|')[0]) > input_time1 and float(line.split('|')[0]) < input_time2):
-                total_request += 1
-                
-                # line.split('|')[4] is http status 
-                if int(line.split('|')[4]) == http_status:
-                    fail_req += 1
-                # line.split('|')[2] is hostname/domain-name
-                domain_status[str(line.split('|')[2]).strip()] = (fail_req/total_request)*100
+                domain_name = str(line.split('|')[2]).strip()
+                status = line.split('|')[4].strip()
+                is_5xx = status.startswith('50')
+                if domain_name not in log_lines:
+                    log_lines[domain_name] = {
+                        "total": 1,
+                        "5xx" : 1 if is_5xx else 0
+                    }
+                else: 
+                    val = log_lines[domain_name]
+                    val["total"] += 1
+                    val["5xx"] += 1 if is_5xx else 0
+                    log_lines[domain_name] = val
+    return log_lines
 
-    return domain_status
-input_time1 = 1493969101.639
-input_time2 = 1493969101.660
-input_filename = 'logs.txt'
-s = analyze_logs(input_time1, input_time2, input_filename)
-print (s)
+if __name__ == '__main__':
+
+    if len(sys.argv) != 4:
+        raise Exception("Please use readme to check the correct order of & type arguments to use")
+    else:
+        input_filename = sys.argv[1]
+        input_time1 = float(sys.argv[2])
+        input_time2 = float(sys.argv[3])
+    
+    log_lines = analyze_logs(input_time1, input_time2, input_filename)
+
+    for k,v in log_lines.items():
+        percent = round(v["5xx"]/v["total"],2)
+        print (f"{k} returned {percent}% of 5xx errors")
